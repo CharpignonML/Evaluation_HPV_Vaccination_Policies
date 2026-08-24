@@ -3,7 +3,7 @@ library(ggplot2)
 library(dplyr)
 
 
-df <- read.csv2("/Users/charlottederogis/Desktop/Stage/R/discontinuités/googletrends/15122019.csv")
+df <- read.csv2("/Users/charlottederogis/Desktop/Stage/R/discontinuités/googletrends/16122019.csv")
 df$Date <- as.Date(df$Date)
 df$n <- as.numeric(df$n)
 t0 <- as.Date("2019-12-16")
