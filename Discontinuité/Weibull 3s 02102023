@@ -2,12 +2,12 @@ library(minpack.lm)
 library(ggplot2)
 library(dplyr)
 
-df <- read.csv2("/Users/charlottederogis/Desktop/Stage/R/discontinuités/googletrends/28022023.csv")
+df <- read.csv2("/Users/charlottederogis/Desktop/Stage/R/discontinuités/googletrends/02102023bis.csv")
 df$Date <- as.Date(df$Date)
 df$n <- as.numeric(df$n)
-t0 <- as.Date("2023-02-28")
+t0 <- as.Date("2023-10-02")
 
-# 4 semaines avant et après
+# 3 semaines avant et après
 df <- df %>%
   filter(Date >= t0 - 21, Date <= t0 + 21)
 
@@ -15,8 +15,8 @@ mediane_avant <- median(df$n[df$Date < t0], na.rm = TRUE)
 
 # Préparation des données pour le fit 
 
-post <- df[df$Date >= as.Date("2023-02-28"), ]
-post$t          <- post$Date -  as.Date("2023-02-28")
+post <- df[df$Date >= as.Date("2023-10-02"), ]
+post$t          <- post$Date -  as.Date("2023-10-02")
 post$n_centré <- post$n - mediane_avant
 
 post$t <- as.numeric(post$t)
@@ -72,7 +72,7 @@ ggplot(df, aes(x = Date, y = n)) +
            label = paste("Médiane avant =", round(mediane_avant, 1)),
            hjust = 0, color = "gray40", size = 5) +
   annotate("text", x = t0 - 1, y =  max(df$n),
-           label = paste("28 février 2023"),
+           label = paste("02 octobre 2023"),
            hjust = 1, color = "firebrick", size = 5) +
   scale_x_date(date_breaks = "3 days", date_labels = "%d %b") +
   labs(title = "Données + fit Weibull",
