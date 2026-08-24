@@ -1,0 +1,154 @@
+library("tidyverse")
+library("tibbletime")
+library("anomalize")
+library("lubridate")
+library("quantmod") #getsymbols
+library("tbl2xts")
+library(tibble)
+library(dplyr)
+
+df_ggtrends <- read.csv2("/Users/charlottederogis/Desktop/Stage/R/CSV/google\ trends/ggt\ total\ dates\ snds.csv")
+
+df_ggtrends$Date <- as.Date(paste0(df_ggtrends$Date, "-01"), format = "%Y-%m-%d")
+
+df_2010 <- df_ggtrends %>%
+  filter(Date >= as.Date("2010-01-01"))
+
+ggplot(data = df_2010, aes(x = Date, y = n)) +
+  geom_line(color = "indianred3", size = 1) +
+  geom_smooth(method = "loess") +
+  scale_x_date(date_labels = "%b/%Y") +
+  labs(
+    title = "Recherches ggtrends en lien avec vaccin HPV",
+    subtitle = "2010 - 2026",
+    x = "",
+    y = "Recherches ggtrends"
+  ) +
+  theme_minimal()
+
+ggtrends_tbl <- df_2010 %>%
+  as_tibble() %>%
+  mutate(Date = as.Date(Date))
+
+ggtrends_tbl %>%
+  time_decompose(n,
+                 method = "stl",
+                 frequency = "auto",
+                 trend = "auto") %>%
+  anomalize(remainder) %>%
+  plot_anomaly_decomposition() +
+  labs(title = "Anomalies recherches google",
+       subtitle = "Method STL Decomposition")
+
+anomalies <- ggtrends_tbl %>%
+  time_decompose(n,
+                 method = "stl",
+                 frequency = "auto") %>%
+  anomalize(remainder) %>%
+  time_recompose() %>%
+  filter(anomaly == "Yes")
+anomalies %>% select(Date, observed, remainder, anomaly)
+
+acf(ggtrends_tbl$n)
+
+# s'affranchir de la tendance
+
+ggtrends_tbl <- ggtrends_tbl %>%
+  mutate(n.diff = c(0, diff(n)))
+
+acf(ggtrends_tbl$n.diff)  
+
+ggtrends_tbl %>%
+  time_decompose(n.diff,
+                 method = "stl",
+                 frequency = "auto",
+                 trend = "auto") %>%
+  anomalize(remainder) %>%
+  plot_anomaly_decomposition() +
+  labs(title = "Anomalies recherches google - Différence",
+       subtitle = "Method STL Decomposition")
+
+# Voir les dates et valeurs
+anomalies <- ggtrends_tbl %>%
+  time_decompose(n.diff,
+                 method = "stl",
+                 frequency = "auto") %>%
+  anomalize(remainder) %>%
+  time_recompose() %>%
+  filter(anomaly == "Yes")
+anomalies %>% select(Date, observed, remainder, anomaly)
+
+# s'affranchir de l'Heteroscedasticity
+
+# Difference for logarithms for Tesla shares prices
+ggtrends_tbl <- ggtrends_tbl %>%
+  mutate(n.Diff.Log = c(0,diff(log(n))))
+
+#Plot
+ggtrends_tbl %>%
+  time_decompose(n.Diff.Log,
+                 method = "stl",
+                 frequency = "auto") %>%
+  anomalize(remainder) %>%
+  plot_anomaly_decomposition() +
+  labs(title = "Anomalies recherches google Difference of the log",
+       subtitle = "Method: STL Decomposition")
+
+anomalies <- ggtrends_tbl %>%
+  time_decompose(n.Diff.Log,
+                 method = "stl",
+                 frequency = "auto") %>%
+  anomalize(remainder) %>%
+  time_recompose() %>%
+  filter(anomaly == "Yes")
+anomalies %>% select(Date, observed, remainder, anomaly)
+
+
+# methode twitter 
+
+ggtrends_tbl %>%
+  time_decompose(n.Diff.Log,
+                 method = "twitter",
+                 frequency = "auto") %>%
+  anomalize(remainder) %>%
+  plot_anomaly_decomposition() +
+  labs(title = "Anomalies recherches google for the Difference of the log",
+       subtitle = "Method: Twitter Decomposition")
+
+anomalies <- ggtrends_tbl %>%
+  time_decompose(n.Diff.Log,
+                 method = "twitter",
+                 frequency = "auto") %>%
+  anomalize(remainder) %>%
+  time_recompose() %>%
+  filter(anomaly == "Yes")
+anomalies %>% select(Date, observed, remainder, anomaly)
+
+# methode IQR
+
+ventes_iqr_outliers <- iqr(ggtrends_tbl$n.Diff.Log,
+                           alpha = 0.05,
+                           max_anoms = 0.2,
+                           verbose = TRUE)$outlier_report
+
+# Ploting function for anomaly observations
+# Basis taken from:
+# https://business-science.github.io/anomalize/articles/anomalize_methods.html
+ggsetup <- function(data) {
+  #Scale y axis
+  y_axis <- max(abs(data$value)) + mean(abs(data$value))
+  data %>%
+    ggplot(aes(rank, value, color = outlier)) +
+    geom_point() +
+    geom_line(aes(y = limit_upper), color = "red", linetype = 2) +
+    geom_line(aes(y = limit_lower), color = "red", linetype = 2) +
+    geom_text(aes(label = index), vjust = -1.25) +
+    theme_bw() +
+    scale_color_manual(values = c("No" = "#2c3e50", "Yes" = "#e31a1c")) +
+    ylim(- y_axis, y_axis) +
+    theme(legend.position = "bottom")
+}
+
+ventes_iqr_outliers %>%
+  ggsetup() +
+  ggtitle("IQR: Top outliers sorted by rank")
